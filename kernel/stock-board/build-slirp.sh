@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Project-local static library: never replace the Homebrew installation.
+# Project-local patched library: never replace the Homebrew installation.
 set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 lab=$(cd "$here/../.." && pwd)
@@ -7,7 +7,11 @@ work=${DSM_QEMU_WORK:-"$lab/work/macos"}
 mkdir -p "$work"
 work=$(cd "$work" && pwd)
 patch_cmd=patch
+library=static
 if [[ "$(uname -s)" == Darwin ]]; then
+  # macOS GLib/iconv are dynamic dependencies. A shared patched libslirp avoids
+  # requesting a partly static GLib link and is copied into the Mac bundle.
+  library=shared
   if ! command -v gpatch >/dev/null 2>&1; then
     echo 'GNU patch is required on macOS (brew install gpatch)' >&2
     exit 69
@@ -36,7 +40,9 @@ fi
 build="$work/libslirp-hostfwd-build"
 if [[ ! -f "$build/build.ninja" ]]; then
   "$meson" setup "$build" "$source_dir" --prefix="$prefix" \
-    --libdir=lib --default-library=static -Dbuildtype=release
+    --libdir=lib --default-library="$library" -Dbuildtype=release
+else
+  "$meson" configure "$build" -Ddefault_library="$library"
 fi
 "$meson" compile -C "$build"
 "$meson" test -C "$build" --print-errorlogs

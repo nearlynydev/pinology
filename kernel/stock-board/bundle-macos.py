@@ -37,6 +37,12 @@ def main():
             return copied[key]
         dst = root / directory / key
         shutil.copy2(src, dst)
+        # Relocation changes Mach-O load commands. Remove the copied signature
+        # before edits; sign and verify the final binary after relocation.
+        signed = subprocess.run(['codesign', '--display', str(dst)],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if signed.returncode == 0:
+            subprocess.run(['codesign', '--remove-signature', str(dst)], check=True)
         originals[key], copied[key] = src, dst
         for dep in dependencies(src):
             if dep.startswith(('/System/', '/usr/lib/')) or dep == str(src):
@@ -55,6 +61,7 @@ def main():
         if key == 'qemu-system-aarch64':
             sign += ['--entitlements', str(HERE / 'macos-hvf.entitlements')]
         subprocess.run(sign + [str(dst)], check=True)
+        subprocess.run(['codesign', '--verify', '--strict', str(dst)], check=True)
         return dst
     copy_binary(a.qemu, 'bin')
     copy_binary(a.qemu_img, 'bin')
