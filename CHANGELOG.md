@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Explicit host-IPv4 access with `start --network host --bind-address`, retaining
+  loopback defaults and Docker network isolation; optional `--https-port` forward.
+- Native health/shutdown uses the chosen bind address, with legacy metadata support.
+- English/Russian network and update guides. Separate router DHCP/bridging remains
+  unimplemented.
+
 ## 0.1.0 — 2026-10-01
 
 Initial experimental, source-only public distribution.

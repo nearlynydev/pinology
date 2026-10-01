@@ -58,6 +58,11 @@ For DS423, use `--model DS423` with a **new** instance and
 
 ## Operate safely
 
+For LAN access using the Mac/Pi address, use `start --network host
+--bind-address HOST_IPV4`; optional `--https-port 15505` forwards DSM HTTPS.
+See [network access](docs/en/networking.md). This is port forwarding on the host,
+not a separate DHCP address for DSM; bridging is not yet implemented.
+
 Power off from DSM and wait for the launcher to exit before copying or moving
 the instance. Then create a cold checkpoint:
 

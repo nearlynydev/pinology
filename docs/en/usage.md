@@ -11,7 +11,7 @@ options than the development runtime. Use `./pinology COMMAND --help` for syntax
 | `doctor` | Check basic host prerequisites; not a complete build or VM test |
 | `build` | Compile a local Mac bundle or Linux Docker image |
 | `init PATH` | Create new pinned media, flash and a virtual disk |
-| `start PATH` | Run in the foreground with HTTP/SMB on loopback |
+| `start PATH` | Run in the foreground; HTTP/SMB on loopback by default |
 | `status PATH` | Inspect the instance; not a comprehensive DSM service audit |
 | `stop PATH --credentials FILE` | Request authenticated DSM shutdown and wait |
 | `backup PATH NEW_DESTINATION` | Create a verified cold checkpoint; source must be stopped |
@@ -23,7 +23,8 @@ from 8G through 16T. The public path creates a sparse qcow2; choosing a larger
 size does not reserve that much physical space and does not grow an existing
 disk. Monitor the host's actual free space.
 
-`start` accepts `--port` (default 15504), `--smb-port` (14445),
+`start` accepts `--port` (default 15504), `--smb-port` (14445), optional `--https-port`,
+`--network local|host`, `--bind-address`,
 `--experimental-ds423` and `--experimental-gicv2`. Host ports must be distinct,
 unprivileged and unused. GICv2 is a Linux-only opt-in; DS423 needs its own flag
 regardless of host.
@@ -40,13 +41,15 @@ API-ready; an API-ready DSM is not necessarily healthy in every package.
 
 ## Network and lifecycle
 
-Networking uses user-mode NAT. The HTTP and SMB forwards listen on host
-127.0.0.1, not the LAN; there is no automatic bridge, dedicated LAN IP or discovery
+Networking uses user-mode NAT. By default HTTP and SMB forwards listen on host
+127.0.0.1. For LAN access through the host IP, explicitly select `--network host`
+and `--bind-address HOST_IPV4`; see [network access](networking.md). There is no
+automatic bridge, dedicated LAN IP or discovery
 broadcast forwarding. The Docker guest's internal wildcard binding is confined
 to its private network. Do not change the container to host networking.
 
 Create a shared folder inside DSM before using `smb://127.0.0.1:14445/SHARE`.
-Use your own DSM credentials. A remote host needs SSH forwards for each service:
+Use your own DSM credentials. In local mode, a remote host needs SSH forwards for each service:
 
 ```sh
 ssh -N -L 15504:127.0.0.1:15504 -L 14445:127.0.0.1:14445 user@pi-host
