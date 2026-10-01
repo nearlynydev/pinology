@@ -6,7 +6,9 @@
 
 ## Apple Silicon macOS
 
-Нужны ARM64-терминал, Python 3.11 или новее, Xcode Command Line Tools и Homebrew.
+Нужны ARM64-терминал, Python 3.11 или новее, Xcode/Command Line Tools 16.2+
+(macOS SDK 15.2 или новее) и Homebrew. В старых SDK нет заголовков Hypervisor,
+нужных закреплённой версии QEMU; `doctor` и `build` проверяют SDK до компиляции.
 Установите зависимости самостоятельно: оболочка не меняет системные пакеты.
 
 ```sh

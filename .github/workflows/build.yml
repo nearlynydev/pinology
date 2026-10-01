@@ -18,7 +18,7 @@ jobs:
           docker run --rm --network none --entrypoint /opt/ds223/bin/qemu-system-aarch64 pinology:ci -machine help
           docker run --rm --network none pinology:ci config
   macos-arm64:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

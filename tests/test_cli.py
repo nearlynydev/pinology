@@ -11,6 +11,15 @@ import cli
 
 
 class CliTests(unittest.TestCase):
+    def test_mac_sdk_requires_modern_hvf_headers(self):
+        for version, accepted in (("14.5", False), ("15.2", True), ("27.0", True), ("unknown", False)):
+            with self.subTest(version=version), patch.object(cli.subprocess, "run", return_value=Mock(stdout=version)):
+                if accepted:
+                    self.assertEqual(cli.mac_sdk(), version)
+                else:
+                    with self.assertRaises(RuntimeError):
+                        cli.mac_sdk()
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)

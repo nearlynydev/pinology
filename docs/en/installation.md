@@ -6,7 +6,9 @@ Use test storage only. Existing instance directories are never overwritten.
 
 ## Apple Silicon macOS
 
-Use an ARM64 terminal, Python 3.11 or newer, Xcode Command Line Tools and Homebrew.
+Use an ARM64 terminal, Python 3.11 or newer, Xcode/Command Line Tools 16.2+
+(macOS SDK 15.2 or newer) and Homebrew. Older SDKs lack the Hypervisor headers
+required by the pinned QEMU; `doctor` and `build` check this before compilation.
 Install build dependencies yourself; the launcher does not change system packages:
 
 ```sh

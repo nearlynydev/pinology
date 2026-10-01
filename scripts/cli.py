@@ -232,9 +232,22 @@ def cmd_backup(args):
              f"/backup/{target.name}"], cwd=ROOT)
 
 
+def mac_sdk():
+    result = subprocess.run(["xcrun", "--sdk", "macosx", "--show-sdk-version"],
+                            check=True, capture_output=True, text=True)
+    version = result.stdout.strip()
+    parts = version.split(".")
+    if len(parts) < 2 or not all(part.isdigit() for part in parts):
+        raise RuntimeError("Cannot determine macOS SDK version")
+    if tuple(map(int, parts[:2])) < (15, 2):
+        raise RuntimeError("QEMU HVF build requires macOS SDK 15.2+ (Xcode/Command Line Tools 16.2+)")
+    return version
+
+
 def cmd_build(_args):
     kind = host()
     if kind == "mac":
+        mac_sdk()
         meson = shutil.which("meson")
         if not meson:
             raise RuntimeError("meson is required; install prerequisites manually")
@@ -262,6 +275,7 @@ def cmd_doctor(_args):
         result["kvm"] = Path("/dev/kvm").is_char_device()
         result["ready"] = result["docker"] and result["kvm"]
     else:
+        result["macos_sdk"] = mac_sdk()
         hvf = subprocess.run(["sysctl", "-n", "kern.hv_support"], capture_output=True, text=True).stdout.strip() == "1"
         result["hvf"] = hvf
         result["ready"] = hvf and all(result.values())
