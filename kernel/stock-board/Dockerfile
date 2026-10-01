@@ -1,5 +1,5 @@
 # Emulator only. DSM PAT, boot artifacts, flash and disks stay outside the image.
-FROM vdsm/virtual-dsm@sha256:be18567e4d9690c053e3191f7fe5b65f68e871c50b708de82297021462175ff8 AS extractor
+FROM vdsm/virtual-dsm@sha256:02cea121099a65a75575c974d71a5898666cc324ab26ae8c04a04e0a42172181 AS extractor
 FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS build
 # Build-stage xz alternatives refer to man pages. Keep those pages here so
 # package configuration does not warn about missing targets; runtime stays slim.
