@@ -1,0 +1,14 @@
+CONFIG_DS223=y
+CONFIG_DESIGNWARE_I2C=y
+CONFIG_DS1338=y
+CONFIG_AHCI_SYSBUS=y
+CONFIG_AHCI_ICH9=y
+CONFIG_PCI=y
+CONFIG_OR_IRQ=y
+CONFIG_USB_DWC3=y
+CONFIG_USB_STORAGE_BOT=y
+CONFIG_SSI=y
+CONFIG_SSI_M25P80=y
+# QEMU 11.1 links the GICv5 CPU interface into TCG unconditionally.
+# Its backing implementation must be present even though DS223 uses GICv3.
+CONFIG_ARM_GICV5=y

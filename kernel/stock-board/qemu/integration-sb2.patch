@@ -1,0 +1,5 @@
+--- a/hw/arm/meson.build
++++ b/hw/arm/meson.build
+@@ -2,1 +2,1 @@
+-arm_common_ss.add(when: 'CONFIG_DS223', if_true: files('ds223.c', 'rtd1619b-crg.c', 'rtd1619b-gpio.c', 'rtd1619b-otp.c'))
++arm_common_ss.add(when: 'CONFIG_DS223', if_true: files('ds223.c', 'rtd1619b-crg.c', 'rtd1619b-gpio.c', 'rtd1619b-otp.c', 'rtd1619b-sb2.c'))

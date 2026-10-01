@@ -1,0 +1,30 @@
+name: Bug report / Ошибка
+description: Report a reproducible problem using sanitized information.
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach firmware, disks, serial numbers, credentials or raw logs. Security issues: use private reporting. English and Russian are welcome."
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Host and guest
+      description: OS, CPU/board, accelerator, model, DSM build, Docker version if used. No private addresses.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps, expected result and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Minimal sanitized evidence
+      description: State exactly which test passed/failed. Check snippets for device identity and credentials.

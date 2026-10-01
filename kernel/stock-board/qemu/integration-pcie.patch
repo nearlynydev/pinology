@@ -1,0 +1,4 @@
+--- a/hw/arm/meson.build
++++ b/hw/arm/meson.build
+@@ -1,0 +2,1 @@
++arm_common_ss.add(when: 'CONFIG_DS223', if_true: files('rtd1619b-pcie.c'))

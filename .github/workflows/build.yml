@@ -1,0 +1,38 @@
+name: Emulator build (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build emulator-only container (never downloads DSM)
+        run: docker build -t pinology:ci kernel/stock-board
+      - name: Check models and runtime
+        run: |
+          docker run --rm --network none --entrypoint /opt/ds223/bin/qemu-system-aarch64 pinology:ci -machine help
+          docker run --rm --network none pinology:ci config
+  macos-arm64:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.13'
+      - name: Build prerequisites
+        run: brew install meson ninja pkg-config glib libffi gettext dtc qemu gpatch
+      - name: Build native emulator and local bundle (never downloads DSM)
+        run: ./pinology build
+      - name: Verify ad-hoc signature and models
+        run: |
+          codesign --verify --strict dist/pinology-macos/bin/qemu-system-aarch64
+          dist/pinology-macos/bin/qemu-system-aarch64 -machine help
+    # No artifact/container publication: redistribute only with complete source/notices.

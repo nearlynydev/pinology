@@ -1,0 +1,5 @@
+--- a/hw/arm/meson.build
++++ b/hw/arm/meson.build
+@@ -1,1 +1,2 @@
+ arm_common_ss = ss.source_set()
++arm_common_ss.add(when: 'CONFIG_DS223', if_true: files('../net/net_tx_pkt.c'))

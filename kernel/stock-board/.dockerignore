@@ -1,0 +1,7 @@
+__pycache__
+*.pyc
+*.pat
+*.qcow2
+*.bin
+work
+.git

@@ -1,0 +1,16 @@
+--- a/hw/arm/meson.build
++++ b/hw/arm/meson.build
+@@ -1,2 +1,3 @@
+ arm_common_ss = ss.source_set()
++arm_common_ss.add(when: 'CONFIG_DS223', if_true: files('ds223.c', 'rtd1619b-crg.c', 'rtd1619b-gpio.c', 'rtd1619b-otp.c', 'rtd1619b-sb2.c', 'rtd1619b-mcp.c', 'rtd1619b-sata.c', 'rtd1619b-net.c', 'rtd1619b-usb.c'))
+ arm_common_ss.add(when: 'CONFIG_ARM_VIRT', if_true: files('virt.c'))
+--- a/hw/arm/Kconfig
++++ b/hw/arm/Kconfig
+@@ -1,1 +1,7 @@
++config DS223
++    bool
++    depends on AARCH64
++    select ARM_GIC
++    select SERIAL_MM
++
+ config ARM_VIRT

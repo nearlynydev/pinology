@@ -1,0 +1,14 @@
+name: Feature request / Предложение
+description: Discuss a change before implementing it.
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Problem and proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Platforms, risks and validation plan
+      description: Include data-safety implications and alternatives.

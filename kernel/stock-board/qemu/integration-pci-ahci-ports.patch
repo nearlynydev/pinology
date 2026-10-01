@@ -1,0 +1,42 @@
+--- a/hw/ide/ich.c
++++ b/hw/ide/ich.c
+@@ -61,6 +61,8 @@
+  */
+ 
+ #include "qemu/osdep.h"
++#include "qapi/error.h"
++#include "hw/core/qdev-properties.h"
+ #include "hw/pci/msi.h"
+ #include "hw/pci/pci.h"
+ #include "migration/vmstate.h"
+@@ -128,7 +130,11 @@
+     d = ICH9_AHCI(dev);
+     int ret;
+ 
+-    d->ahci.ports = 6;
++    /* Experimental board profiles may expose fewer physical ports. */
++    if (d->ahci.ports < 1 || d->ahci.ports > 6) {
++        error_setg(errp, "AHCI num-ports must be 1..6");
++        return;
++    }
+     ahci_realize(&d->ahci, DEVICE(dev), pci_get_address_space(dev));
+ 
+     pci_config_set_prog_interface(dev->config, AHCI_PROGMODE_MAJOR_REV_1);
+@@ -176,12 +182,17 @@
+     ahci_uninit(&d->ahci);
+ }
+ 
++static const Property ich_ahci_properties[] = {
++    DEFINE_PROP_UINT32("num-ports", AHCIPCIState, ahci.ports, 6),
++};
++
+ static void ich_ahci_class_init(ObjectClass *klass, const void *data)
+ {
+     DeviceClass *dc = DEVICE_CLASS(klass);
+     PCIDeviceClass *k = PCI_DEVICE_CLASS(klass);
+ 
+     k->realize = pci_ich9_ahci_realize;
++    device_class_set_props(dc, ich_ahci_properties);
+     k->exit = pci_ich9_uninit;
+     k->vendor_id = PCI_VENDOR_ID_INTEL;
+     k->device_id = PCI_DEVICE_ID_INTEL_82801IR;

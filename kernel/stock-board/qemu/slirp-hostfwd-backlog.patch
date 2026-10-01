@@ -1,0 +1,7 @@
+--- a/src/socket.c
++++ b/src/socket.c
+@@ -879,1 +879,3 @@
+-        (listen(s, 1) < 0)) {
++        /* A web UI opens several host-forwarded connections concurrently.
++         * Keep the single-accept semantics for non-hostfwd sockets. */
++        (listen(s, (flags & SS_HOSTFWD) ? 128 : 1) < 0)) {

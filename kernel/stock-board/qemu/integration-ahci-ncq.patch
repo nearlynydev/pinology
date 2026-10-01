@@ -1,0 +1,22 @@
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -1108,6 +1108,19 @@
+         return;
+     }
+ 
++    /* DS223-NCQ: a fresh queue must not inherit a non-NCQ task-file error.
++     * In particular, an aborted SMART command can leave ERR/ABRT set after
++     * the host has acknowledged TFES and restarted the command engine.
++     * Clear this before queue acceptance emits its non-interrupting D2H FIS.
++     * Do not clear an unacknowledged error or an error with other outstanding
++     * NCQ tags: those still belong to the host's error-recovery sequence.
++     */
++    if (!(ad->port_regs.irq_stat & AHCI_PORT_IRQ_BIT_TFES) &&
++        !(ad->port_regs.scr_act & ~(1U << tag))) {
++        ad->port.ifs[0].error = 0;
++        ad->port.ifs[0].status = READY_STAT | SEEK_STAT;
++    }
++
+     /*
+      * A NCQ command clears the bit in PxCI after the command has been QUEUED
+      * successfully (ERROR not set, BUSY and DRQ cleared).
