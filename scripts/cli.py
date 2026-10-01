@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import socket
 import subprocess
 import sys
 
@@ -164,16 +165,29 @@ def network_options(args):
         address = '127.0.0.1'
     elif mode == 'host':
         if address is None:
-            raise ValueError('--network host requires --bind-address HOST_IPV4 (or explicitly 0.0.0.0)')
+            address = '0.0.0.0'
         address = runtime_settings.bind_address(address)
         if address.startswith('127.'):
             raise ValueError('Use --network local for loopback')
     else:
         raise ValueError('Unsupported network mode; router DHCP/bridging is not implemented')
-    https = getattr(args, 'https_port', None)
+    https = getattr(args, 'https_port', 5001)
     extra = f'tcp:{https}:5001' if https is not None else ''
     forwards = runtime_settings.forwards(args.port, args.smb_port, extra)
     return address, extra, forwards
+
+
+def check_native_ports(address, forwards):
+    # Diagnostic preflight only, not a reservation: QEMU still binds atomically
+    # at launch and remains authoritative if another process wins the race.
+    for _protocol, port, guest in forwards:
+        flag = {5000: '--port', 5001: '--https-port', 445: '--smb-port'}[guest]
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind((address, port))
+        except OSError as error:
+            raise RuntimeError(f'Cannot bind {address}:{port}: {error}. '
+                               f'Choose another port with {flag}; no service was stopped or privileges elevated.') from None
 
 
 def cmd_start(args):
@@ -184,6 +198,7 @@ def cmd_start(args):
         raise ValueError("--experimental-gicv2 is supported only on Linux aarch64 KVM")
     if host() == "mac":
         runtime, qemu, qemu_img = native_runtime()
+        check_native_ports(address, forwards)
         command = [sys.executable, str(runtime), "--qemu-img", str(qemu_img), "run", str(instance),
                    "--qemu", str(qemu), "--accel", accel, "--flash", "--port", str(args.port),
                    "--smb-port", str(args.smb_port), "--bind-address", address,
@@ -201,13 +216,16 @@ def cmd_start(args):
     command = ["docker", "run", "--rm", "--name", name, *kvm,
                "--label", f"org.pinology.instance={instance}",
                "--user", f"{os.getuid()}:{os.getgid()}", *docker_instance(instance)]
-    for protocol, port, _guest in forwards:
-        command += ["-p", f"{address}:{port}:{port}/{protocol}"]
+    # Publish native host ports, but never require low-port privileges for the
+    # unprivileged QEMU process inside the isolated container.
+    container_ports = {5000: 5000, 5001: 5001, 445: 14445}
+    for protocol, port, guest in forwards:
+        command += ["-p", f"{address}:{port}:{container_ports[guest]}/{protocol}"]
     command += [
                "-e", "STORAGE=/data", "-e", "ACCEL=kvm", "-e", "BIND_ADDRESS=0.0.0.0", IMAGE,
-               "run", "/data", "--accel", "kvm", "--port", str(args.port), "--smb-port", str(args.smb_port)]
+               "run", "/data", "--accel", "kvm", "--port", "5000", "--smb-port", "14445"]
     if extra:
-        command += ["--user-ports", extra]
+        command += ["--user-ports", "tcp:5001:5001"]
     if args.experimental_ds423:
         command.append("--experimental-ds423")
     if args.experimental_gicv2:
@@ -332,11 +350,14 @@ def parser():
     sub.add_parser("doctor")
     sub.add_parser("build")
     init = sub.add_parser("init"); init.add_argument("path"); init.add_argument("--model", choices=("DS223", "DS423"), default="DS223"); init.add_argument("--disk-size", default="32G"); init.add_argument("--serial", default=""); init.add_argument("--pat"); init.add_argument("--artifacts")
-    start = sub.add_parser("start"); start.add_argument("path"); start.add_argument("--port", type=int, default=15504); start.add_argument("--smb-port", type=int, default=14445); start.add_argument("--experimental-ds423", action="store_true"); start.add_argument("--experimental-gicv2", action="store_true")
+    start = sub.add_parser("start"); start.add_argument("path")
+    start.add_argument('--port', type=int, default=5000, help='Host HTTP port (default: 5000)')
+    start.add_argument('--smb-port', type=int, default=445, help='Host SMB port (default: 445)')
+    start.add_argument('--experimental-ds423', action='store_true'); start.add_argument('--experimental-gicv2', action='store_true')
     start.add_argument('--network', choices=('local', 'host'), default='local',
-                       help='local: loopback only (default); host: publish on an explicitly selected host IPv4')
-    start.add_argument('--bind-address', help='For --network host: host IPv4; 0.0.0.0 explicitly exposes all IPv4 interfaces')
-    start.add_argument('--https-port', type=int, help='Optional host TCP port forwarded to DSM HTTPS 5001')
+                       help='local: loopback only (default); host: listen on 0.0.0.0 unless --bind-address overrides it')
+    start.add_argument('--bind-address', help='Optional host IPv4 restriction; host mode defaults to 0.0.0.0')
+    start.add_argument('--https-port', type=int, default=5001, help='Host HTTPS port (default: 5001)')
     for name in ("status",):
         q = sub.add_parser(name); q.add_argument("path")
     stop = sub.add_parser("stop"); stop.add_argument("path"); stop.add_argument("--credentials", required=True)

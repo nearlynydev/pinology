@@ -65,10 +65,14 @@ hash, extracts the model's boot files and creates one new disk plus flash.
 The sibling `instances/nas.media` retains installation media. Both directories
 must be new; failed attempts remain available for inspection.
 
-Open <http://127.0.0.1:15504/>. On a remote host use an
+Open <http://127.0.0.1:5000/>. On a remote host use an
 [SSH tunnel](troubleshooting.md). Complete the DSM wizard and choose your own
 administrator credentials. If it requests an installation file, use the same
 verified PAT from `instances/nas.media/boot.pat`. No shared default login is set.
+
+Public `start` now defaults to ports 5000/5001/445. If a host service already uses
+one (for example, macOS AirPlay on 5000), override it with `--port`, `--https-port`
+or `--smb-port`; do not stop that service automatically. See [networking](networking.md).
 
 To use existing verified media instead of downloading/extracting:
 

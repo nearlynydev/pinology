@@ -108,8 +108,8 @@ def run(args):
         raise ValueError("Experimental GICv2 requires KVM or TCG acceleration")
     acceleration = accelerator_args(accel)
     smb_port = getattr(args, "smb_port", None)
-    if smb_port is not None and (not 1024 <= smb_port <= 65535 or smb_port == args.port):
-        raise ValueError('SMB port must be unprivileged and distinct from HTTP')
+    if smb_port is not None and (not 1 <= smb_port <= 65535 or smb_port == args.port):
+        raise ValueError('SMB port must be 1..65535 and distinct from HTTP')
     instance = args.instance.resolve(strict=True)
     if ',' in str(instance) or '\n' in str(instance):
         raise ValueError('Instance path may not contain comma or newline')

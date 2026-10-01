@@ -39,7 +39,8 @@ class SettingsTests(unittest.TestCase):
             if address is not None:
                 state['bind_address'] = address
             self.assertEqual(guest_control.api_endpoint(state), f'http://{expected}:15504')
-        for state in ({'port': True}, {'port': 80}, {'port': 15504, 'bind_address': 'other-host'}):
+        self.assertEqual(guest_control.api_endpoint({'port': 80}), 'http://127.0.0.1:80')
+        for state in ({'port': True}, {'port': 0}, {'port': 15504, 'bind_address': 'other-host'}):
             with self.assertRaises(ValueError):
                 guest_control.api_endpoint(state)
 
@@ -150,7 +151,7 @@ class SettingsTests(unittest.TestCase):
         for key, value in [('CPU_CORES', '8'), ('RAM_SIZE', '4G'), ('DISK_SIZE', '7G'),
                            ('DISK_SIZE', '17T'), ('DISK_FMT', 'vmdk'), ('ALLOCATE', 'yes'),
                            ('MAC', 'ff:ff:ff:ff:ff:ff'), ('MAC', '00:00:00:00:00:00'),
-                           ('NETWORK', 'host'), ('HTTP_PORT', '80'), ('TIMEOUT', '0'),
+                           ('NETWORK', 'host'), ('HTTP_PORT', '0'), ('TIMEOUT', '0'),
                            ('STARTUP_TIMEOUT', 'abc'), ('USER_PORTS', 'tcp:15504:80'),
                            ('EXPERIMENTAL_DS423', 'yes')]:
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):

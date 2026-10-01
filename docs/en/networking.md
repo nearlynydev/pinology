@@ -8,7 +8,7 @@ Neither gives DSM its own address from your router.
 | Mode | Reachability | Router DHCP lease for DSM |
 | --- | --- | --- |
 | `--network local` (default) | This host only, or an SSH tunnel | No |
-| `--network host --bind-address HOST_IPV4` | Selected ports on the host's IPv4 address | No |
+| `--network host` | Native ports on all host IPv4 interfaces (`0.0.0.0`) | No |
 | Bridged / direct LAN | Not implemented in the public CLI | Would be required for a separate router address |
 
 `host` here means **using the host's address**, not Docker `--network host`.
@@ -18,41 +18,55 @@ its normal port-publishing rules; see [Docker's port-publishing documentation](h
 
 ## Access via the Mac/Pi address
 
-Find the IPv4 address of the host on your trusted LAN in its network settings
-or your router's device list. It must belong to this host, not be an unused
-address you want to assign to DSM. Replace `HOST_IPV4` below:
+No IP argument is needed. Host mode listens on `0.0.0.0` and publishes DSM's
+native ports: HTTP 5000, HTTPS 5001 and SMB 445.
 
 ```sh
-./pinology start instances/nas --network host --bind-address HOST_IPV4 \
-  --port 15504 --https-port 15505 --smb-port 14445
+./pinology start instances/nas --network host
 ```
 
 Keep `--experimental-ds423` and/or `--experimental-gicv2` if your model/host
-requires them. From another LAN device, use:
+requires them. Find the Mac/Pi's LAN IP in its network settings or router device
+list, then use that address instead of `HOST_IPV4` in your client:
 
-- Web: `https://HOST_IPV4:15505/` (guest TCP 5001).
-- HTTP/setup: `http://HOST_IPV4:15504/` (guest TCP 5000).
-- SMB: `smb://HOST_IPV4:14445/SHARE` (guest TCP 445); create the shared folder in DSM.
+- Web: `https://HOST_IPV4:5001/` (guest TCP 5001).
+- HTTP/setup: `http://HOST_IPV4:5000/` (guest TCP 5000).
+- SMB: `smb://HOST_IPV4/SHARE` (TCP 445); create the shared folder in DSM.
 
-`--https-port` is optional and does not configure TLS inside DSM. HTTPS becomes
+All three host ports can be overridden independently:
+
+```sh
+./pinology start instances/nas --network host \
+  --port 15504 --https-port 15505 --smb-port 14445
+```
+
+Forwarding HTTPS does not configure TLS inside DSM. HTTPS becomes
 usable when DSM enables its HTTPS service; the installer may provide only HTTP.
 Use a trusted certificate and verify its identity rather than blindly bypassing
 certificate warnings. Prefer HTTPS for credentials on LAN. If DSM's automatic
 redirect points to guest port 5001, open the explicit forwarded HTTPS URL above.
-SMB clients that cannot specify a nonstandard port cannot use this mapping directly.
+If you override SMB, clients that cannot specify a nonstandard port cannot use
+that mapping directly. The default 445 works with standard SMB clients.
 
-Host ports must be distinct, unused and in 1024..65535. No root or privileged
-container is needed for these forwards. Only the selected HTTP/SMB/optional HTTPS
+Host ports must be distinct, unused and in 1..65535. Some systems restrict ports
+below 1024; Pinology does not elevate privileges. On Linux, Docker maps host 445
+to an unprivileged internal port, so QEMU needs no additional capabilities.
+Rootless Docker may still restrict low host ports: use `--smb-port 14445` if needed.
+Native Mac launch checks binding before starting the VM and suggests the matching
+override if a port is occupied or denied. Port 5000 may already be used by macOS
+ControlCenter/AirPlay: use `--port 15504` without changing system services.
+Only the selected HTTP/SMB/HTTPS
 ports are published, not every package port; broadcast discovery is not forwarded.
 Do not set the host IP as DSM's guest interface address: leave the guest's NAT
 network configuration unchanged. Reserve the **host's** DHCP address on your router
-if you need a stable URL. If that address changes, stop DSM safely and restart
-with the new bind address; a specific bind does not silently fall back to all interfaces.
+if you need a stable URL. Wildcard listening does not pin the old host address.
+For an optional interface restriction, add `--bind-address HOST_IPV4` using an
+address assigned to this host. If that specific address changes, restart with
+the new one; a specific bind does not silently fall back to all interfaces.
 
-To deliberately listen on every IPv4 interface, specify `--network host
---bind-address 0.0.0.0`. This includes VPN and other reachable interfaces, not just
-your LAN; connect using the actual host IP, never `0.0.0.0`. Prefer a specific LAN
-address. Do not configure internet port forwarding or expose an unconfigured DSM
+Host mode's default `0.0.0.0` includes VPN and other reachable IPv4 interfaces,
+not just your LAN; connect using the actual host IP, never `0.0.0.0`. Use the
+optional bind restriction if required. Do not configure internet port forwarding or expose an unconfigured DSM
 installer on an untrusted network. Start initial setup in local mode when possible.
 
 ## Change modes or return to local-only

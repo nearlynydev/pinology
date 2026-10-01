@@ -72,7 +72,7 @@ def read_state(root):
     if path.is_symlink():
         raise ValueError('Symlink runtime metadata refused')
     state = json.loads(path.read_text())
-    if not isinstance(state.get('port'), int) or not 1024 <= state['port'] <= 65535:
+    if type(state.get('port')) is not int or not 1 <= state['port'] <= 65535:
         raise ValueError('Invalid runtime port')
     return state
 
@@ -84,7 +84,7 @@ def api_endpoint(state):
     if address == '0.0.0.0':
         address = '127.0.0.1'
     port = state['port']
-    if type(port) is not int or not 1024 <= port <= 65535:
+    if type(port) is not int or not 1 <= port <= 65535:
         raise ValueError('Invalid runtime port')
     return f'http://{address}:{port}'
 
