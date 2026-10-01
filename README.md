@@ -68,7 +68,8 @@ the instance. Then create a cold checkpoint:
 Never mount one instance into two VMs. Do not publish the test system to the
 internet. Host listeners default to loopback, and no host autostart is installed.
 DSM updates are restricted by verified boot profiles, not guaranteed for arbitrary
-future releases. Take a cold checkpoint before updating.
+future releases. Follow the [DSM and Pinology update guide](docs/en/updates.md)
+for supported versions, online/manual installation, checks and rollback.
 
 Read [installation](docs/en/installation.md), [usage](docs/en/usage.md),
 [architecture](docs/en/architecture.md) and [troubleshooting](docs/en/troubleshooting.md).

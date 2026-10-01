@@ -8,6 +8,7 @@ the installation guide for your host; do not use the only copy of valuable data.
 | Overview | [README](../README.md) | [Обзор](ru/README.md) |
 | Installation | [Installation](en/installation.md) | [Установка](ru/installation.md) |
 | Running and configuration | [Usage](en/usage.md) | [Запуск и настройки](ru/usage.md) |
+| DSM and Pinology updates | [Updates](en/updates.md) | [Обновления](ru/updates.md) |
 | Design and compatibility | [Architecture](en/architecture.md) | [Архитектура](ru/architecture.md) |
 | Diagnostics and recovery | [Troubleshooting](en/troubleshooting.md) | [Диагностика](ru/troubleshooting.md) |
 
