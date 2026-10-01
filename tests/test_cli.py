@@ -76,9 +76,50 @@ class CliTests(unittest.TestCase):
         command = run.call_args.args[0]
         self.assertIn("--device", command)
         self.assertIn("/dev/kvm", command)
-        self.assertIn("127.0.0.1:15504:15504", command)
-        self.assertIn("127.0.0.1:14445:14445", command)
+        self.assertIn("127.0.0.1:15504:15504/tcp", command)
+        self.assertIn("127.0.0.1:14445:14445/tcp", command)
         self.assertNotIn("--privileged", command)
+
+    def test_host_network_requires_explicit_address_and_valid_ports(self):
+        for values in (dict(network='host'), dict(bind_address='192.0.2.10'),
+                       dict(network='bridge'), dict(network='host', bind_address='127.0.0.1'),
+                       dict(https_port=15504), dict(https_port=443), dict(port=14445)):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                cli.network_options(self.args(**values))
+        address, extra, forwards = cli.network_options(self.args(
+            network='host', bind_address='192.0.2.10', https_port=15505))
+        self.assertEqual(address, '192.0.2.10')
+        self.assertEqual(extra, 'tcp:15505:5001')
+        self.assertIn(('tcp', 15505, 5001), forwards)
+        self.assertEqual(cli.network_options(self.args(network='host', bind_address='0.0.0.0'))[0], '0.0.0.0')
+
+    def test_host_network_mac_passes_explicit_bind_and_https(self):
+        self.instance.mkdir()
+        (self.instance / 'instance.json').write_text('{}')
+        with patch.object(cli, 'host', return_value='mac'), \
+                patch.object(cli, 'native_runtime', return_value=(Path('runtime.py'), Path('qemu'), Path('qemu-img'))), \
+                patch.object(cli.subprocess, 'run') as run:
+            cli.cmd_start(self.args(network='host', bind_address='192.0.2.10', https_port=15505))
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index('--bind-address') + 1], '192.0.2.10')
+        self.assertEqual(command[command.index('--network') + 1], 'user')
+        self.assertEqual(command[command.index('--user-ports') + 1], 'tcp:15505:5001')
+
+    def test_host_network_linux_keeps_container_isolated(self):
+        self.instance.mkdir()
+        (self.instance / 'instance.json').write_text('{}')
+        with patch.object(cli, 'host', return_value='linux'), \
+                patch.object(cli, 'docker_kvm_args', return_value=['--device', '/dev/kvm']), \
+                patch.object(cli, 'docker_name_available'), patch.object(cli.subprocess, 'run') as run:
+            cli.cmd_start(self.args(network='host', bind_address='192.0.2.10', https_port=15505))
+        command = run.call_args.args[0]
+        for port in (15504, 14445, 15505):
+            self.assertIn(f'192.0.2.10:{port}:{port}/tcp', command)
+        self.assertNotIn('--network', command)
+        self.assertNotIn('--privileged', command)
+        self.assertNotIn('--cap-add', command)
+        self.assertIn('BIND_ADDRESS=0.0.0.0', command)
+        self.assertIn('tcp:15505:5001', command)
 
     def test_gicv2_is_linux_only(self):
         self.instance.mkdir()

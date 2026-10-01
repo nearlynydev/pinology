@@ -1,5 +1,6 @@
 """Strict, non-executable configuration shared by native and Docker launches."""
 import os
+import ipaddress
 from pathlib import Path
 import re
 from vendor_identity import validate_serial
@@ -42,10 +43,10 @@ def load(path=None, environ=None):
         if result[key] not in ('Y', 'N'):
             raise ValueError(f'{key} must be Y or N')
     for key, choices in dict(DISK_FMT=('raw', 'qcow2'), NETWORK=('user', 'N'),
-                             ACCEL=('hvf', 'kvm', 'tcg'),
-                             BIND_ADDRESS=('127.0.0.1', '0.0.0.0')).items():
+                             ACCEL=('hvf', 'kvm', 'tcg')).items():
         if result[key] not in choices:
             raise ValueError(f'Unsupported {key}')
+    result['BIND_ADDRESS'] = bind_address(result['BIND_ADDRESS'])
     for key in ('TIMEOUT', 'STARTUP_TIMEOUT'):
         if not result[key].isdigit() or not 10 <= int(result[key]) <= 3600:
             raise ValueError(f'{key} must be 10..3600 seconds')
@@ -56,6 +57,16 @@ def load(path=None, environ=None):
     result['MAC'] = mac
     forwards(result['HTTP_PORT'], result['SMB_PORT'], result['USER_PORTS'])
     return result
+
+
+def bind_address(value):
+    """Literal IPv4 only: no QEMU option injection, DNS or IPv6 ambiguity."""
+    address = ipaddress.IPv4Address(value)
+    if address.is_multicast or address.is_link_local or address.is_reserved:
+        raise ValueError('Bind address must be a unicast IPv4 address or 0.0.0.0')
+    if int(address) != 0 and int(address) >> 24 == 0:
+        raise ValueError('Invalid forwarding bind address')
+    return str(address)
 
 
 def size(value):

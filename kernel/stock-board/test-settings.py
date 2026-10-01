@@ -24,6 +24,35 @@ def manifest(model='DS223', fmt='qcow2', size=32 * 1024**3):
 
 
 class SettingsTests(unittest.TestCase):
+    def test_ipv4_bind_addresses(self):
+        for address in ('127.0.0.1', '0.0.0.0', '192.0.2.10'):
+            self.assertEqual(settings.load(environ={'BIND_ADDRESS': address})['BIND_ADDRESS'], address)
+        for address in ('localhost', '::1', '224.0.0.1', '255.255.255.255', '0.1.2.3',
+                        '169.254.1.1', '192.0.2.10,hostfwd=tcp::22-:22', '192.0.2.10:5000'):
+            with self.subTest(address=address), self.assertRaises(ValueError):
+                settings.load(environ={'BIND_ADDRESS': address})
+
+    def test_api_endpoint_tracks_bind_with_legacy_and_container_fallback(self):
+        for address, expected in ((None, '127.0.0.1'), ('0.0.0.0', '127.0.0.1'),
+                                  ('192.0.2.10', '192.0.2.10')):
+            state = {'port': 15504}
+            if address is not None:
+                state['bind_address'] = address
+            self.assertEqual(guest_control.api_endpoint(state), f'http://{expected}:15504')
+        for state in ({'port': True}, {'port': 80}, {'port': 15504, 'bind_address': 'other-host'}):
+            with self.assertRaises(ValueError):
+                guest_control.api_endpoint(state)
+
+    def test_health_uses_native_bind_address(self):
+        from unittest.mock import MagicMock
+        opener = MagicMock()
+        opener.open.return_value.__enter__.return_value.read.return_value = b'{"success":true,"data":{"SYNO.API.Auth":{}}}'
+        with patch.object(guest_control, 'qmp_status', return_value={'running': True}), \
+                patch.object(guest_control, 'read_state', return_value={'port': 15504, 'bind_address': '192.0.2.10'}), \
+                patch.object(guest_control.urllib.request, 'build_opener', return_value=opener):
+            self.assertEqual(guest_control.health(Path('/unused'))[0], 0)
+        self.assertTrue(opener.open.call_args.args[0].startswith('http://192.0.2.10:15504/'))
+
     def test_qmp_identity_follows_verified_model_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -84,11 +113,13 @@ class SettingsTests(unittest.TestCase):
                 def open(self, request, timeout):
                     params = urllib.parse.parse_qs(request.data.decode())
                     calls.append(params['method'][0])
+                    if request.full_url != 'http://192.0.2.10:15504/webapi/entry.cgi':
+                        raise AssertionError('Shutdown ignored the native bind address')
                     if calls[-1] == 'shutdown':
                         raise TimeoutError('response lost')
                     return Response()
             with patch.object(guest_control, 'qmp_status', return_value={'running': True}), \
-                    patch.object(guest_control, 'read_state', return_value={'port': 15504, 'network': 'user'}), \
+                    patch.object(guest_control, 'read_state', return_value={'port': 15504, 'network': 'user', 'bind_address': '192.0.2.10'}), \
                     patch.object(guest_control, 'credentials', return_value={'account': 'fixture', 'password': 'fixture'}), \
                     patch.object(guest_control.urllib.request, 'build_opener', return_value=Opener()):
                 self.assertIs(guest_control.poweroff(root, root / 'fixture'), False)

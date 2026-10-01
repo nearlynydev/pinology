@@ -10,6 +10,7 @@ import time
 import urllib.parse
 import urllib.request
 import lease
+import settings
 from profiles import validate_manifest
 
 
@@ -76,6 +77,18 @@ def read_state(root):
     return state
 
 
+def api_endpoint(state):
+    # Older instances used loopback and did not record a bind address. Inside
+    # Docker the wildcard listener is reached through container-local loopback.
+    address = settings.bind_address(state.get('bind_address', '127.0.0.1'))
+    if address == '0.0.0.0':
+        address = '127.0.0.1'
+    port = state['port']
+    if type(port) is not int or not 1024 <= port <= 65535:
+        raise ValueError('Invalid runtime port')
+    return f'http://{address}:{port}'
+
+
 def health(root):
     try:
         state = read_state(root)
@@ -86,7 +99,7 @@ def health(root):
             return 1, 'Network disabled; DSM readiness cannot be verified'
         try:
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-            with opener.open(f'http://127.0.0.1:{state["port"]}/webapi/query.cgi?api=SYNO.API.Info&version=1&method=query&query=SYNO.API.Auth', timeout=3) as r:
+            with opener.open(api_endpoint(state) + '/webapi/query.cgi?api=SYNO.API.Info&version=1&method=query&query=SYNO.API.Auth', timeout=3) as r:
                 value = json.loads(r.read(1024 * 1024))
             if value.get('success') and 'SYNO.API.Auth' in value.get('data', {}):
                 return 0, 'DSM API ready (does not certify every service)'
@@ -128,7 +141,7 @@ def poweroff(root, path):
     def request(api, method, version=1, **params):
         data = urllib.parse.urlencode(dict(api=api, method=method, version=version,
                                           **params, _sid=sid)).encode()
-        r = urllib.request.Request(f'http://127.0.0.1:{state["port"]}/webapi/entry.cgi',
+        r = urllib.request.Request(api_endpoint(state) + '/webapi/entry.cgi',
                                    data=data, headers={'X-SYNO-TOKEN': token})
         try:
             with opener.open(r, timeout=30) as response:

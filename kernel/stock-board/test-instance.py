@@ -90,8 +90,11 @@ class SafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'SMB port'):
                 instance.run(argparse.Namespace(accel='hvf', smb_port=port, port=15504))
 
+    def test_host_bind_is_used_by_qemu_and_runtime_state(self):
+        self.check_flash_boot('tcg', bind_address='192.0.2.10')
+
     def check_flash_boot(self, accel, trace_microp=False, model='DS223', second_nic=False,
-                         experimental_gicv2=False, expected_machine=None):
+                         experimental_gicv2=False, expected_machine=None, bind_address='127.0.0.1'):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             profile = instance.profile(model)
@@ -105,7 +108,7 @@ class SafetyTests(unittest.TestCase):
                                       qemu_img="unused", flash=True, port=15504, accel=accel,
                                       trace_microp=trace_microp, experimental_ds423=model == 'DS423',
                                       experimental_second_nic=second_nic,
-                                      experimental_gicv2=experimental_gicv2)
+                                      experimental_gicv2=experimental_gicv2, bind_address=bind_address)
             info = json.dumps({"format": "qcow2", "virtual-size": 32 * 1024**3})
             with patch.object(instance, "verify"), \
                     patch.object(instance.subprocess, "check_output", return_value=info), \
@@ -114,6 +117,9 @@ class SafetyTests(unittest.TestCase):
                 launch.return_value.wait.return_value = 0
                 self.assertEqual(instance.run(args), 0)
                 command = launch.call_args.args[0]
+                state = json.loads((root / 'runtime.json').read_text())
+                self.assertEqual(state['bind_address'], bind_address)
+                self.assertTrue(any(f'hostfwd=tcp:{bind_address}:15504-:5000' in item for item in command))
                 self.assertEqual(command[command.index("-accel"):command.index("-accel") + 4],
                                  instance.accelerator_args(accel))
                 args = command[command.index("-append") + 1].split()

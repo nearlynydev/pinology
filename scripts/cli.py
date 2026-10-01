@@ -155,7 +155,29 @@ def docker_identity(instance):
     return name
 
 
+def network_options(args):
+    mode = getattr(args, 'network', 'local')
+    address = getattr(args, 'bind_address', None)
+    if mode == 'local':
+        if address not in (None, '127.0.0.1'):
+            raise ValueError('A non-loopback bind requires --network host')
+        address = '127.0.0.1'
+    elif mode == 'host':
+        if address is None:
+            raise ValueError('--network host requires --bind-address HOST_IPV4 (or explicitly 0.0.0.0)')
+        address = runtime_settings.bind_address(address)
+        if address.startswith('127.'):
+            raise ValueError('Use --network local for loopback')
+    else:
+        raise ValueError('Unsupported network mode; router DHCP/bridging is not implemented')
+    https = getattr(args, 'https_port', None)
+    extra = f'tcp:{https}:5001' if https is not None else ''
+    forwards = runtime_settings.forwards(args.port, args.smb_port, extra)
+    return address, extra, forwards
+
+
 def cmd_start(args):
+    address, extra, forwards = network_options(args)
     instance = existing(Path(args.path))
     accel = "kvm" if host() == "linux" else "hvf"
     if args.experimental_gicv2 and host() != "linux":
@@ -164,10 +186,13 @@ def cmd_start(args):
         runtime, qemu, qemu_img = native_runtime()
         command = [sys.executable, str(runtime), "--qemu-img", str(qemu_img), "run", str(instance),
                    "--qemu", str(qemu), "--accel", accel, "--flash", "--port", str(args.port),
-                   "--smb-port", str(args.smb_port), "--bind-address", "127.0.0.1",
+                   "--smb-port", str(args.smb_port), "--bind-address", address,
                    "--network", "user", "--console-socket", "--restart-on-guest-reset"]
+        if extra:
+            command += ["--user-ports", extra]
         if args.experimental_ds423:
             command.append("--experimental-ds423")
+        print_network(address, forwards)
         run(command, cwd=instance, env=clean_env())
         return
     kvm = docker_kvm_args()
@@ -175,15 +200,32 @@ def cmd_start(args):
     docker_name_available(name)
     command = ["docker", "run", "--rm", "--name", name, *kvm,
                "--label", f"org.pinology.instance={instance}",
-               "--user", f"{os.getuid()}:{os.getgid()}", *docker_instance(instance),
-               "-p", f"127.0.0.1:{args.port}:{args.port}", "-p", f"127.0.0.1:{args.smb_port}:{args.smb_port}",
+               "--user", f"{os.getuid()}:{os.getgid()}", *docker_instance(instance)]
+    for protocol, port, _guest in forwards:
+        command += ["-p", f"{address}:{port}:{port}/{protocol}"]
+    command += [
                "-e", "STORAGE=/data", "-e", "ACCEL=kvm", "-e", "BIND_ADDRESS=0.0.0.0", IMAGE,
                "run", "/data", "--accel", "kvm", "--port", str(args.port), "--smb-port", str(args.smb_port)]
+    if extra:
+        command += ["--user-ports", extra]
     if args.experimental_ds423:
         command.append("--experimental-ds423")
     if args.experimental_gicv2:
         command.append("--experimental-gicv2")
+    print_network(address, forwards)
     run(command, cwd=ROOT, env=clean_env())
+
+
+def print_network(address, forwards):
+    display = 'HOST_IPV4' if address == '0.0.0.0' else address
+    if address != '127.0.0.1':
+        print('WARNING: DSM ports will be reachable on the selected host address. '
+              'Use a trusted LAN; no router DHCP lease or firewall rules are created.', flush=True)
+        if address == '0.0.0.0':
+            print('WARNING: 0.0.0.0 includes LAN, VPN and other IPv4 interfaces.', flush=True)
+    for _protocol, port, guest in forwards:
+        scheme = {5000: 'http', 5001: 'https', 445: 'smb'}[guest]
+        print(f'{scheme.upper()}: {scheme}://{display}:{port}/', flush=True)
 
 
 def cmd_status(args):
@@ -291,6 +333,10 @@ def parser():
     sub.add_parser("build")
     init = sub.add_parser("init"); init.add_argument("path"); init.add_argument("--model", choices=("DS223", "DS423"), default="DS223"); init.add_argument("--disk-size", default="32G"); init.add_argument("--serial", default=""); init.add_argument("--pat"); init.add_argument("--artifacts")
     start = sub.add_parser("start"); start.add_argument("path"); start.add_argument("--port", type=int, default=15504); start.add_argument("--smb-port", type=int, default=14445); start.add_argument("--experimental-ds423", action="store_true"); start.add_argument("--experimental-gicv2", action="store_true")
+    start.add_argument('--network', choices=('local', 'host'), default='local',
+                       help='local: loopback only (default); host: publish on an explicitly selected host IPv4')
+    start.add_argument('--bind-address', help='For --network host: host IPv4; 0.0.0.0 explicitly exposes all IPv4 interfaces')
+    start.add_argument('--https-port', type=int, help='Optional host TCP port forwarded to DSM HTTPS 5001')
     for name in ("status",):
         q = sub.add_parser(name); q.add_argument("path")
     stop = sub.add_parser("stop"); stop.add_argument("path"); stop.add_argument("--credentials", required=True)

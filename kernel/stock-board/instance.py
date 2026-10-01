@@ -208,9 +208,7 @@ def run(args):
             (instance / boot_dir).mkdir()
             for name, data in flash_boot.items():
                 (instance / boot_dir / name).write_bytes(data)
-        bind = getattr(args, 'bind_address', '127.0.0.1')
-        if bind not in ('127.0.0.1', '0.0.0.0'):
-            raise ValueError('Unsupported forwarding bind address')
+        bind = settings.bind_address(getattr(args, 'bind_address', '127.0.0.1'))
         forwards = settings.forwards(args.port, smb_port, getattr(args, 'user_ports', ''))
         network = 'user,id=ds223net' + ''.join(f',hostfwd={proto}:{bind}:{host}-:{guest}'
                                              for proto, host, guest in forwards)
@@ -257,7 +255,8 @@ def run(args):
                           "execute_ncq_command_*", "ncq_finish"):
                 command += ["-trace", f"enable={event}"]
         meta = {"command": command, "cwd": str(instance), "qemu_sha256": digest(Path(qemu)),
-                "build": boot_build, "http": f"http://127.0.0.1:{args.port}",
+                "build": boot_build, "http": f"http://{bind if bind != '0.0.0.0' else '127.0.0.1'}:{args.port}",
+                "bind_address": bind,
                 "automatic_reboot": bool(getattr(args, 'restart_on_guest_reset', False)), "packet_capture": False,
                 "microp": {"current_sensor": "unavailable",
                            "tx_trace": bool(getattr(args, "trace_microp", False)),
@@ -274,6 +273,7 @@ def run(args):
                                        pass_fds=(lock.fileno(),), start_new_session=True, umask=0o077)
             print(f"QEMU pid: {process.pid}", flush=True)
             state = {'port': args.port, 'network': 'user' if enabled_network else 'N',
+                     'bind_address': bind,
                      'started': time.time(), 'startup_timeout': getattr(args, 'startup_timeout', 600),
                      'pid': int(process.pid), 'model': model}
             state_path = instance / 'runtime.json'
@@ -393,8 +393,8 @@ def main():
                       help="Record UART1 MCU requests; no sensor replies are synthesized")
     boot.add_argument('--restart-on-guest-reset', action='store_true',
                       help='Restart only after QMP-confirmed guest reset; stop on poweroff/crash; max 3 per 5 minutes')
-    boot.add_argument('--bind-address', choices=('127.0.0.1', '0.0.0.0'),
-                      help='0.0.0.0 is for isolated Docker networking; publish host ports on loopback only')
+    boot.add_argument('--bind-address', type=settings.bind_address,
+                      help='Literal host IPv4 for forwards; 0.0.0.0 exposes all interfaces')
     boot.add_argument('--console-socket', action='store_true',
                       help='Local instance console.sock plus per-boot serial log; no network listener')
     boot.add_argument('--mac')
