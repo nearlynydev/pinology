@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
@@ -38,6 +39,7 @@ def main():
         dst = root / directory / key
         shutil.copy2(src, dst)
         originals[key], copied[key] = src, dst
+        edits = []
         for dep in dependencies(src):
             if dep.startswith(('/System/', '/usr/lib/')) or dep == str(src):
                 continue
@@ -48,13 +50,27 @@ def main():
                 continue
             target = copy_binary(lib, 'lib')
             new = ('@executable_path/../lib/' if directory == 'bin' else '@loader_path/') + target.name
-            subprocess.run(['install_name_tool', '-change', dep, new, str(dst)], check=True)
+            edits += ['-change', dep, new]
         if directory == 'lib':
-            subprocess.run(['install_name_tool', '-id', '@loader_path/' + key, str(dst)], check=True)
+            edits += ['-id', '@loader_path/' + key]
+        if edits:
+            # Xcode 16 cannot relocate some Homebrew dylibs after removing their
+            # signature (__LINKEDIT layout error). Keep it until relocation;
+            # the expected invalidation notice is resolved by signing below.
+            moved = subprocess.run(['install_name_tool', *edits, str(dst)],
+                                   capture_output=True, text=True)
+            if moved.stdout:
+                print(moved.stdout, end='')
+            expected = f'warning: changes being made to the file will invalidate the code signature in: {dst}'
+            for line in moved.stderr.splitlines():
+                if moved.returncode or not line.endswith(expected):
+                    print(line, file=sys.stderr)
+            moved.check_returncode()
         sign = ['codesign', '--force', '--sign', '-']
         if key == 'qemu-system-aarch64':
             sign += ['--entitlements', str(HERE / 'macos-hvf.entitlements')]
         subprocess.run(sign + [str(dst)], check=True)
+        subprocess.run(['codesign', '--verify', '--strict', str(dst)], check=True)
         return dst
     copy_binary(a.qemu, 'bin')
     copy_binary(a.qemu_img, 'bin')

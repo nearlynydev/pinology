@@ -317,6 +317,7 @@ def cmd_build(_args):
         work = ROOT / "work" / "macos"
         env = clean_env() | {"MESON": meson, "DSM_QEMU_WORK": str(work),
                               "DSM_QEMU_BUILD": str(work / "qemu-ds223-build"), "DSM_QEMU_SLIRP": "1",
+                              "DSM_QEMU_RECONFIGURE": "1",
                               "PKG_CONFIG_PATH": str(work / "libslirp-hostfwd" / "lib" / "pkgconfig")}
         run(["bash", str(RUNTIME / "build-slirp.sh")], cwd=RUNTIME, env=env)
         run(["bash", str(RUNTIME / "build-qemu.sh")], cwd=RUNTIME, env=env)
