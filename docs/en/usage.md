@@ -96,7 +96,8 @@ mistakes, not host disk failure; keep a separate backup on independent media.
 
 Before an update, checkpoint the stopped system, then start it again. Only use
 an update whose resulting model-specific boot profile is approved by the current
-source. Do not enable unattended arbitrary firmware updates.
+source. Do not enable unattended arbitrary firmware updates. Follow the
+[update guide](updates.md) for the complete procedure, version list and rollback.
 
 ## Identity and advanced settings
 
