@@ -56,7 +56,7 @@ A DSM configuration export alone does not replace this disk-and-flash checkpoint
 
 ## Apply the update in DSM
 
-1. Open DSM at <http://127.0.0.1:15504/> (or your configured port/SSH tunnel).
+1. Open DSM at <http://127.0.0.1:5000/> (or your configured port/SSH tunnel).
    Go to **Control Panel → Update & Restore → DSM Update**.
 2. If the offered version is the verified target, download it and follow the
    installation prompts. If it is not offered, use **Manual DSM Update** with an

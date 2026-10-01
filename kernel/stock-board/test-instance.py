@@ -86,7 +86,7 @@ class SafetyTests(unittest.TestCase):
         self.check_flash_boot('hvf', model='DS423', second_nic=True)
 
     def test_invalid_smb_port_fails_before_opening_instance(self):
-        for port in (445, 15504, 65536):
+        for port in (0, 15504, 65536):
             with self.assertRaisesRegex(ValueError, 'SMB port'):
                 instance.run(argparse.Namespace(accel='hvf', smb_port=port, port=15504))
 

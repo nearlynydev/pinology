@@ -44,9 +44,12 @@ mkdir -p instances
 
 On a CM4/Pi 4 Linux host, use `./pinology start instances/nas --experimental-gicv2`
 instead of the last command. Start stays in the foreground. Open
-<http://127.0.0.1:15504/> on the host, or use an [SSH tunnel](docs/en/troubleshooting.md).
+<http://127.0.0.1:5000/> on the host, or use an [SSH tunnel](docs/en/troubleshooting.md).
 Complete DSM's installation wizard; initialization alone does not create an
 installed NAS or an administrator account.
+
+If a host port is occupied (macOS may use 5000 for AirPlay), override only that
+port, e.g. `./pinology start instances/nas --port 15504`, then open port 15504.
 
 `init` obtains the model-specific, SHA-256-pinned DSM 7.2.2-72806 PAT from Synology.
 On Mac, automatic PAT extraction uses a pinned Docker helper, while the guest
@@ -58,8 +61,10 @@ For DS423, use `--model DS423` with a **new** instance and
 
 ## Operate safely
 
-For LAN access using the Mac/Pi address, use `start --network host
---bind-address HOST_IPV4`; optional `--https-port 15505` forwards DSM HTTPS.
+For LAN access, use `./pinology start instances/nas --network host`:
+it listens on `0.0.0.0` with native ports 5000 (HTTP), 5001 (HTTPS), and 445 (SMB).
+Override them with `--port`, `--https-port`, and `--smb-port`; optionally restrict
+the interface with `--bind-address`.
 See [network access](docs/en/networking.md). This is port forwarding on the host,
 not a separate DHCP address for DSM; bridging is not yet implemented.
 

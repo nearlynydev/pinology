@@ -6,15 +6,15 @@ copy before experimenting, and never start the same disk in two processes.
 
 ## The web interface does not open
 
-The default URL is <http://127.0.0.1:15504/> on the machine running Pinology.
+The default URL is <http://127.0.0.1:5000/> on the machine running Pinology.
 For a remote Linux host, forward that loopback port over SSH:
 
 ```sh
-ssh -N -L 15504:127.0.0.1:15504 user@pi-host
+ssh -N -L 5000:127.0.0.1:5000 user@pi-host
 ```
 
 Keep the SSH session open, then visit the URL on your computer. If that local
-port is occupied, use `-L 15514:127.0.0.1:15504` and open port 15514 instead.
+port is occupied, use `-L 15514:127.0.0.1:5000` and open port 15514 instead.
 Do not solve a tunnel problem by exposing DSM publicly.
 
 An API readiness check distinguishes starting, ready and unavailable; it does

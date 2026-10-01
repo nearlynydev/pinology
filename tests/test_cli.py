@@ -76,14 +76,15 @@ class CliTests(unittest.TestCase):
         command = run.call_args.args[0]
         self.assertIn("--device", command)
         self.assertIn("/dev/kvm", command)
-        self.assertIn("127.0.0.1:15504:15504/tcp", command)
+        self.assertIn("127.0.0.1:15504:5000/tcp", command)
         self.assertIn("127.0.0.1:14445:14445/tcp", command)
         self.assertNotIn("--privileged", command)
 
-    def test_host_network_requires_explicit_address_and_valid_ports(self):
-        for values in (dict(network='host'), dict(bind_address='192.0.2.10'),
+    def test_host_network_uses_wildcard_and_valid_ports(self):
+        self.assertEqual(cli.network_options(self.args(network='host'))[0], '0.0.0.0')
+        for values in (dict(bind_address='192.0.2.10'),
                        dict(network='bridge'), dict(network='host', bind_address='127.0.0.1'),
-                       dict(https_port=15504), dict(https_port=443), dict(port=14445)):
+                       dict(https_port=15504), dict(https_port=0), dict(port=14445)):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 cli.network_options(self.args(**values))
         address, extra, forwards = cli.network_options(self.args(
@@ -98,6 +99,7 @@ class CliTests(unittest.TestCase):
         (self.instance / 'instance.json').write_text('{}')
         with patch.object(cli, 'host', return_value='mac'), \
                 patch.object(cli, 'native_runtime', return_value=(Path('runtime.py'), Path('qemu'), Path('qemu-img'))), \
+                patch.object(cli, 'check_native_ports'), \
                 patch.object(cli.subprocess, 'run') as run:
             cli.cmd_start(self.args(network='host', bind_address='192.0.2.10', https_port=15505))
         command = run.call_args.args[0]
@@ -113,13 +115,41 @@ class CliTests(unittest.TestCase):
                 patch.object(cli, 'docker_name_available'), patch.object(cli.subprocess, 'run') as run:
             cli.cmd_start(self.args(network='host', bind_address='192.0.2.10', https_port=15505))
         command = run.call_args.args[0]
-        for port in (15504, 14445, 15505):
-            self.assertIn(f'192.0.2.10:{port}:{port}/tcp', command)
+        for port, internal in ((15504,5000), (14445,14445), (15505,5001)):
+            self.assertIn(f'192.0.2.10:{port}:{internal}/tcp', command)
         self.assertNotIn('--network', command)
         self.assertNotIn('--privileged', command)
         self.assertNotIn('--cap-add', command)
         self.assertIn('BIND_ADDRESS=0.0.0.0', command)
-        self.assertIn('tcp:15505:5001', command)
+        self.assertIn('tcp:5001:5001', command)
+
+    def test_native_port_defaults_and_overrides(self):
+        args = cli.parser().parse_args(['start', 'unused', '--network', 'host'])
+        self.assertEqual(cli.network_options(args), ('0.0.0.0', 'tcp:5001:5001',
+            [('tcp',5000,5000),('tcp',445,445),('tcp',5001,5001)]))
+        args = cli.parser().parse_args(['start', 'unused', '--port', '80', '--https-port', '443', '--smb-port', '14445'])
+        self.assertEqual(cli.network_options(args)[2], [('tcp',80,5000),('tcp',14445,445),('tcp',443,5001)])
+
+    def test_default_host_ports_publish_without_container_low_ports(self):
+        self.instance.mkdir()
+        (self.instance / 'instance.json').write_text('{}')
+        args = cli.parser().parse_args(['start', str(self.instance), '--network', 'host'])
+        with patch.object(cli, 'host', return_value='linux'), \
+                patch.object(cli, 'docker_kvm_args', return_value=['--device', '/dev/kvm']), \
+                patch.object(cli, 'docker_name_available'), patch.object(cli.subprocess, 'run') as run:
+            cli.cmd_start(args)
+        command = run.call_args.args[0]
+        for published in ('0.0.0.0:5000:5000/tcp', '0.0.0.0:5001:5001/tcp', '0.0.0.0:445:14445/tcp'):
+            self.assertIn(published, command)
+        self.assertEqual(command[command.index('--smb-port') + 1], '14445')
+        self.assertNotIn('--privileged', command)
+        self.assertNotIn('--cap-add', command)
+
+    def test_native_bind_error_has_override_hint(self):
+        with patch.object(cli.socket, 'socket') as socket:
+            socket.return_value.__enter__.return_value.bind.side_effect = PermissionError('not permitted')
+            with self.assertRaisesRegex(RuntimeError, '--smb-port'):
+                cli.check_native_ports('0.0.0.0', [('tcp',445,445)])
 
     def test_gicv2_is_linux_only(self):
         self.instance.mkdir()

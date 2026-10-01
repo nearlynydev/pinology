@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-- Explicit host-IPv4 access with `start --network host --bind-address`, retaining
-  loopback defaults and Docker network isolation; optional `--https-port` forward.
+- `start --network host` listens on `0.0.0.0` without requiring an IP argument;
+  optional `--bind-address` restricts it. Local-only mode remains the default.
+- Public `start` defaults to native HTTP/HTTPS/SMB ports 5000/5001/445, with
+  independent overrides. Docker retains isolation and unprivileged QEMU ports;
+  native Mac launch reports port conflicts without stopping other services.
 - Native health/shutdown uses the chosen bind address, with legacy metadata support.
 - English/Russian network and update guides. Separate router DHCP/bridging remains
   unimplemented.

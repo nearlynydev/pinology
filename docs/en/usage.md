@@ -23,14 +23,14 @@ from 8G through 16T. The public path creates a sparse qcow2; choosing a larger
 size does not reserve that much physical space and does not grow an existing
 disk. Monitor the host's actual free space.
 
-`start` accepts `--port` (default 15504), `--smb-port` (14445), optional `--https-port`,
+`start` accepts `--port` (default 5000), `--smb-port` (445), `--https-port` (5001),
 `--network local|host`, `--bind-address`,
 `--experimental-ds423` and `--experimental-gicv2`. Host ports must be distinct,
-unprivileged and unused. GICv2 is a Linux-only opt-in; DS423 needs its own flag
+unused and in 1..65535; host low-port permissions still apply. GICv2 is a Linux-only opt-in; DS423 needs its own flag
 regardless of host.
 
 ```sh
-./pinology start instances/nas --port 15504 --smb-port 14445
+./pinology start instances/nas --port 5000 --smb-port 445
 # In another terminal:
 ./pinology status instances/nas
 ```
@@ -43,17 +43,20 @@ API-ready; an API-ready DSM is not necessarily healthy in every package.
 
 Networking uses user-mode NAT. By default HTTP and SMB forwards listen on host
 127.0.0.1. For LAN access through the host IP, explicitly select `--network host`
-and `--bind-address HOST_IPV4`; see [network access](networking.md). There is no
+(defaults to `0.0.0.0`); `--bind-address` is an optional restriction.
+See [network access](networking.md). There is no
 automatic bridge, dedicated LAN IP or discovery
 broadcast forwarding. The Docker guest's internal wildcard binding is confined
 to its private network. Do not change the container to host networking.
 
-Create a shared folder inside DSM before using `smb://127.0.0.1:14445/SHARE`.
+Create a shared folder inside DSM before using `smb://127.0.0.1:445/SHARE`.
 Use your own DSM credentials. In local mode, a remote host needs SSH forwards for each service:
 
 ```sh
-ssh -N -L 15504:127.0.0.1:15504 -L 14445:127.0.0.1:14445 user@pi-host
+ssh -N -L 5000:127.0.0.1:5000 -L 14445:127.0.0.1:445 user@pi-host
 ```
+
+This tunnel exposes SMB at `smb://127.0.0.1:14445/SHARE` on the client.
 
 The launcher enables persistent flash, a local serial socket and bounded reboot
 supervision. Only a confirmed guest reset causes a restart; poweroff, crashes or

@@ -87,8 +87,8 @@ def forwards(http, smb=None, extra=''):
         result.append((match[1], int(match[2]), int(match[3])))
     used = set()
     for protocol, host, guest in result:
-        if not (1024 <= host <= 65535 and 1 <= guest <= 65535):
-            raise ValueError('Host ports must be 1024..65535, guest ports 1..65535')
+        if not (1 <= host <= 65535 and 1 <= guest <= 65535):
+            raise ValueError('Host and guest ports must be 1..65535')
         if (protocol, host) in used:
             raise ValueError('Duplicate host forwarding port')
         used.add((protocol, host))
