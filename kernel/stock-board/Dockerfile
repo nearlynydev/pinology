@@ -1,6 +1,6 @@
 # Emulator only. DSM PAT, boot artifacts, flash and disks stay outside the image.
 FROM vdsm/virtual-dsm@sha256:be18567e4d9690c053e3191f7fe5b65f68e871c50b708de82297021462175ff8 AS extractor
-FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS build
+FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS build
 # Build-stage xz alternatives refer to man pages. Keep those pages here so
 # package configuration does not warn about missing targets; runtime stays slim.
 RUN sed -i '\|^path-exclude /usr/share/man/|d' /etc/dpkg/dpkg.cfg.d/docker && \
@@ -15,7 +15,7 @@ ENV DSM_QEMU_WORK=/build/work DSM_QEMU_BUILD=/build/out DSM_QEMU_SLIRP=1 \
 RUN bash /build/kernel/stock-board/build-slirp.sh && \
     bash /build/kernel/stock-board/build-qemu.sh
 
-FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-msgpack python3-pysodium qemu-utils libglib2.0-0t64 libfdt1 zlib1g ca-certificates && \
     python3 -m venv --system-site-packages /opt/pat-python && \
